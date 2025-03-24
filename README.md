@@ -286,3 +286,11 @@ if __name__ == "__main__":
         print("  - Decrease NUM_BATCHES (currently {NUM_BATCHES})") 
 
 ```
+#### run it
+```bash
+# With GIL enabled
+python mnist_asyncio_gil.py
+
+# With GIL disabled 
+PYTHON_GIL=0 python mnist_asyncio_gil.py
+```
