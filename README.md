@@ -1,5 +1,9 @@
 # gil.md
 
+### Make sure you have a python3.13 without GIL build
+```bash ./configure --disable-gil
+```
+
 ```python
 import time
 import numpy as np
