@@ -293,7 +293,7 @@ if __name__ == "__main__":
 #### run it
 ```bash
 # With GIL enabled
-python mnist_asyncio_gil.py
+PYTHON_GIL=1 python mnist_asyncio_gil.py
 
 # With GIL disabled 
 PYTHON_GIL=0 python mnist_asyncio_gil.py
