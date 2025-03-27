@@ -1,6 +1,7 @@
 # gil.md
 
 ### Make sure you have a python3.13 without GIL build
+
 ```bash ./configure --disable-gil
 ```
 
@@ -291,9 +292,11 @@ if __name__ == "__main__":
 
 ```
 #### run it
+
 ```bash
 # With GIL enabled
 PYTHON_GIL=1 python mnist_asyncio_gil.py
+```
 
 # With GIL disabled 
 PYTHON_GIL=0 python mnist_asyncio_gil.py
