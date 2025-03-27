@@ -2,8 +2,8 @@
 
 ### Make sure you have a python3.13 without GIL build
 
-```bash ./configure --disable-gil
-```
+bash ./configure --disable-gil
+
 
 ```python
 import time
