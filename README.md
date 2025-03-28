@@ -28,8 +28,9 @@ from threading import Lock
 # Global variables
 log_file = None  # Will be set in setup_logging
 
-# Famous guitarists for thread names
+# Exactly 64 famous guitarists for thread names
 GUITARIST_NAMES = [
+    # Original 16
     "Gilmour",    # Pink Floyd
     "Page",       # Led Zeppelin
     "Clapton",    # Cream
@@ -46,6 +47,55 @@ GUITARIST_NAMES = [
     "Satriani",   # Solo
     "Harrison",   # Beatles
     "May",        # Queen
+    # Extended to 64 total
+    "Slash",      # Guns N' Roses
+    "Frusciante", # Red Hot Chili Peppers
+    "Hammett",    # Metallica
+    "Malmsteen",  # Solo
+    "Morello",    # Rage Against the Machine
+    "Lifeson",    # Rush
+    "Townshend",  # The Who
+    "Reinhardt",  # Jazz
+    "Metheny",    # Jazz
+    "Montgomery", # Jazz
+    "Benson",     # Jazz
+    "Govan",      # Solo/Steven Wilson
+    "Bonamassa",  # Solo
+    "Holdsworth", # Jazz fusion
+    "Krasno",     # Soulive
+    "Anastasio",  # Phish
+    "Moore",      # Thin Lizzy/Solo
+    "Berry",      # Rock pioneer
+    "King",       # Blues legend
+    "Marr",       # The Smiths
+    "Buckingham", # Fleetwood Mac
+    "Greenwood",  # Radiohead
+    "Summers",    # The Police
+    "Howe",       # Yes
+    "Clarke",     # The Yardbirds/The Faces
+    "Gallagher",  # Rory Gallagher
+    "Allman",     # Allman Brothers
+    "Winter",     # Johnny Winter
+    "Prince",     # Prince
+    "Homme",      # Queens of the Stone Age
+    "Mascis",     # Dinosaur Jr.
+    "Schon",      # Journey
+    "Bellamy",    # Muse
+    "Corgan",     # Smashing Pumpkins
+    "Mustaine",   # Megadeth
+    "Petrucci",   # Dream Theater
+    "Hetfield",   # Metallica
+    "Rhoads",     # Ozzy Osbourne
+    "Skolnick",   # Testament
+    "Johnson",    # Eric Johnson
+    "Scofield",   # Jazz
+    "McLaughlin", # Mahavishnu Orchestra
+    "DiMeola",    # Return to Forever
+    "Hoppus",     # Blink-182
+    "Wylde",      # Ozzy Osbourne/Black Label Society
+    "Friedman",   # Megadeth
+    "Buckethead", # Solo
+    "Frehley"     # KISS
 ]
 
 # Log levels
@@ -67,41 +117,103 @@ class LogLevel:
     BENCHMARK = "BENCHMARK"
     SYSTEM = "SYSTEM"
 
-# ANSI color codes for colorful output
 class Colors:
-    """ANSI color codes for terminal output."""
+    """ANSI color codes for terminal output with exactly 64 distinct colors."""
     RESET = "\033[0m"
-    # More iTerm2-friendly colors (less bright, better contrast)
-    RED = "\033[38;5;124m"          # Darker red - less eye-glaring
-    GREEN = "\033[38;5;71m"         # Softer green
-    YELLOW = "\033[38;5;178m"       # Softer yellow
-    BLUE = "\033[38;5;67m"          # Softer blue
-    PURPLE = "\033[38;5;133m"       # Softer purple
-    CYAN = "\033[38;5;73m"          # Softer cyan
-    ORANGE = "\033[38;5;172m"       # Softer orange
-    PINK = "\033[38;5;175m"         # Softer pink
-    LIME = "\033[38;5;107m"         # Muted lime
-    TEAL = "\033[38;5;80m"          # Softer teal
-    LAVENDER = "\033[38;5;103m"     # Softer lavender
-    BROWN = "\033[38;5;94m"         # Muted brown
-    OLIVE = "\033[38;5;64m"         # Muted olive
-    NAVY = "\033[38;5;24m"          # Muted navy
-    MAROON = "\033[38;5;88m"        # Softer maroon
-    FOREST = "\033[38;5;28m"        # Muted forest green
+    # Base colors kept for reference
+    RED = "\033[38;5;124m"
+    GREEN = "\033[38;5;71m"
+    YELLOW = "\033[38;5;178m"
+    BLUE = "\033[38;5;67m"
+    PURPLE = "\033[38;5;133m"
+    CYAN = "\033[38;5;73m"
+    ORANGE = "\033[38;5;172m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
     REVERSE = "\033[7m"
-    MAGENTA = "\033[38;5;132m"      # Softer magenta for batch info
     
     # Thread color mapping - maps thread ID to a color
     thread_colors = {}
     color_index = 0
     
-    # High contrast colors for threads
+    # Exactly 64 distinct colors optimized for terminal visibility
+    # These are carefully selected from the 6x6x6 color cube (216 colors)
+    # to have good contrast and readability
     thread_color_list = [
-        RED, GREEN, BLUE, YELLOW, PURPLE, CYAN, ORANGE, PINK,
-        LIME, TEAL, LAVENDER, BROWN, OLIVE, NAVY, MAROON, FOREST
+        # Original 16 colors (modified for better visibility)
+        "\033[38;5;196m",  # Bright Red
+        "\033[38;5;46m",   # Bright Green
+        "\033[38;5;21m",   # Blue
+        "\033[38;5;226m",  # Yellow
+        "\033[38;5;129m",  # Purple
+        "\033[38;5;51m",   # Cyan
+        "\033[38;5;208m",  # Orange
+        "\033[38;5;201m",  # Pink
+        "\033[38;5;118m",  # Lime
+        "\033[38;5;39m",   # Light Blue
+        "\033[38;5;141m",  # Lavender
+        "\033[38;5;130m",  # Brown
+        "\033[38;5;106m",  # Olive
+        "\033[38;5;18m",   # Navy
+        "\033[38;5;124m",  # Maroon
+        "\033[38;5;28m",   # Forest Green
+        
+        # 48 more distinct colors to reach 64 total
+        # These are mathematically distributed across the color spectrum
+        # Using the 6x6x6 RGB color cube (colors 16-231 in 256-color terminals)
+        "\033[38;5;160m",  # Dark Red
+        "\033[38;5;202m",  # Dark Orange
+        "\033[38;5;214m",  # Gold
+        "\033[38;5;190m",  # Light Lime
+        "\033[38;5;82m",   # Lime Green
+        "\033[38;5;40m",   # Green
+        "\033[38;5;34m",   # Dark Green
+        "\033[38;5;49m",   # Teal
+        "\033[38;5;45m",   # Turquoise
+        "\033[38;5;27m",   # Royal Blue
+        "\033[38;5;20m",   # Navy Blue
+        "\033[38;5;56m",   # Indigo
+        "\033[38;5;92m",   # Violet
+        "\033[38;5;128m",  # Purple
+        "\033[38;5;164m",  # Magenta
+        "\033[38;5;200m",  # Pink
+        "\033[38;5;124m",  # Dark Red
+        "\033[38;5;166m",  # Burnt Orange
+        "\033[38;5;184m",  # Tan
+        "\033[38;5;154m",  # Yellow Green
+        "\033[38;5;76m",   # Grass Green
+        "\033[38;5;35m",   # Forest Green
+        "\033[38;5;30m",   # Sea Green
+        "\033[38;5;44m",   # Light Teal
+        "\033[38;5;39m",   # Sky Blue
+        "\033[38;5;33m",   # Medium Blue
+        "\033[38;5;26m",   # Deep Blue
+        "\033[38;5;55m",   # Blue Violet
+        "\033[38;5;91m",   # Dark Violet
+        "\033[38;5;127m",  # Wine
+        "\033[38;5;163m",  # Hot Pink
+        "\033[38;5;199m",  # Deep Pink
+        "\033[38;5;88m",   # Brown Red
+        "\033[38;5;130m",  # Brown
+        "\033[38;5;178m",  # Khaki
+        "\033[38;5;142m",  # Olive
+        "\033[38;5;70m",   # Olive Green
+        "\033[38;5;29m",   # Dark Teal
+        "\033[38;5;23m",   # Deep Sea Green
+        "\033[38;5;37m",   # Medium Teal
+        "\033[38;5;32m",   # Light Blue
+        "\033[38;5;25m",   # Slate Blue
+        "\033[38;5;54m",   # Dark Purple
+        "\033[38;5;90m",   # Medium Purple
+        "\033[38;5;126m",  # Raspberry
+        "\033[38;5;162m",  # Medium Pink
+        "\033[38;5;198m",  # Bright Pink
+        "\033[38;5;52m",   # Mahogany
     ]
+    
+    # Special colors for the main thread - make it stand out more clearly
+    MAIN_THREAD_COLOR = "\033[38;5;220m"  # Bright gold for main thread
+    MAIN_THREAD_HIGHLIGHT = BOLD + "\033[38;5;220m"  # Bold bright gold
     
     # Level colors
     level_colors = {
@@ -115,8 +227,8 @@ class Colors:
         LogLevel.THREAD_START: BOLD + CYAN,
         LogLevel.THREAD_END: BOLD + ORANGE,
         LogLevel.THREAD_SWITCH: BOLD + PURPLE,
-        LogLevel.BATCH_START: MAGENTA,
-        LogLevel.BATCH_END: BOLD + MAGENTA,
+        LogLevel.BATCH_START: "\033[38;5;132m",  # Magenta
+        LogLevel.BATCH_END: BOLD + "\033[38;5;132m",  # Bold Magenta
         LogLevel.BENCHMARK: BOLD + YELLOW,
         LogLevel.SYSTEM: BOLD + CYAN,
     }
@@ -124,14 +236,14 @@ class Colors:
     @staticmethod
     def get_thread_color(thread_id):
         """Get a distinct color for a thread based on its ID."""
-        # Special case: main thread is always ORANGE
+        # Special case: main thread gets a distinctive gold color
         if thread_id == MAIN_THREAD_ID:
-            return Colors.ORANGE
+            return Colors.MAIN_THREAD_COLOR
             
         # Use a cache to maintain consistent colors for threads
         if thread_id not in Colors.thread_colors:
-            # Assign next color in the list
-            next_color = Colors.thread_color_list[Colors.color_index % len(Colors.thread_color_list)]
+            # Assign next color in the list, cycling if needed
+            next_color = Colors.thread_color_list[Colors.color_index % 64]
             Colors.thread_colors[thread_id] = next_color
             Colors.color_index += 1
             
@@ -141,7 +253,7 @@ class Colors:
 MAIN_THREAD_ID = threading.get_ident()
 
 # Global variables
-num_threads = multiprocessing.cpu_count() * 2  # Default to 2 threads per core
+num_threads = 8  # Will be updated based on CPU count
 last_thread_id = None  # For thread transition tracking
 thread_transitions = 0  # Count of thread switches
 print_lock = Lock()  # For thread-safe printing
@@ -149,6 +261,29 @@ verbose = True  # Default to verbose mode
 thread_names = {}  # Maps thread IDs to names
 active_thread = MAIN_THREAD_ID  # Track which thread is currently active
 track_thread_switches = True  # Can be disabled for maximum performance
+
+def calculate_optimal_thread_count():
+    """Calculate optimal thread count based on CPU cores available.
+    
+    Returns thread count that's a multiple of 8 for systems with many cores,
+    or a power of 2 for systems with fewer cores.
+    """
+    cpu_count = multiprocessing.cpu_count()
+    
+    # For systems with many cores, use a multiple of 8
+    if cpu_count >= 16:
+        # Round to nearest multiple of 8
+        return ((cpu_count + 3) // 8) * 8
+    
+    # For systems with 8-16 cores, use exact count
+    elif cpu_count >= 8:
+        return cpu_count
+    
+    # For systems with fewer cores, use power of 2
+    elif cpu_count >= 4:
+        return 8
+    else:
+        return 4  # Minimum thread count
 
 def get_thread_name(thread_id):
     """Get a human-readable name for a thread."""
@@ -158,7 +293,8 @@ def get_thread_name(thread_id):
         return "MAIN"
         
     if thread_id not in thread_names:
-        guitarist_idx = len(thread_names) % len(GUITARIST_NAMES)
+        # Will cycle through names if more than 64 threads
+        guitarist_idx = len(thread_names) % 64
         thread_names[thread_id] = GUITARIST_NAMES[guitarist_idx]
         
     return thread_names[thread_id]
@@ -181,8 +317,10 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
     
     # Prepare thread identification - minimize time inside lock
     if is_main_thread:
+        # Make main thread more visibly distinct with bold and special color
         thread_name = "MAIN"
-        thread_prefix = f"[MAIN-{thread_id}]"
+        thread_prefix = f"[{Colors.MAIN_THREAD_HIGHLIGHT}MAIN-{thread_id}{Colors.RESET}]"
+        thread_type_indicator = f"({Colors.BOLD}MAIN THREAD{Colors.RESET})"
     else:
         # Get or assign thread name outside the lock to reduce contention
         if thread_id not in thread_names:
@@ -190,6 +328,7 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
             thread_names[thread_id] = GUITARIST_NAMES[guitarist_idx]
         thread_name = thread_names.get(thread_id, f"Thread-{thread_id}")
         thread_prefix = f"[{thread_name}-{thread_id}]"
+        thread_type_indicator = f"(WORKER)"
     
     framework_thread_name = threading.current_thread().name
     
@@ -200,7 +339,7 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
     level_color = Colors.level_colors.get(level, Colors.RESET)
     
     # Format messages outside the lock
-    console_message = f"{thread_color}{thread_prefix}{Colors.RESET} ({framework_thread_name}) [{level_color}{level}{Colors.RESET}]: {message}"
+    console_message = f"{thread_color}{thread_prefix}{Colors.RESET} {thread_type_indicator} [{level_color}{level}{Colors.RESET}]: {message}"
     
     # Only track thread switches if enabled - this minimizes synchronization overhead
     if track_thread_switches and level != LogLevel.THREAD_SWITCH:
@@ -215,25 +354,29 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
                 # Update active thread tracker
                 active_thread = thread_id
                 
-                # Format the thread prefixes
+                # Format the thread prefixes with clearer distinction between main and worker
                 if last_thread_id == MAIN_THREAD_ID:
-                    from_prefix = f"[MAIN-{last_thread_id}]"
+                    from_prefix = f"[{Colors.MAIN_THREAD_HIGHLIGHT}MAIN-{last_thread_id}{Colors.RESET}]"
+                    from_type = "(MAIN THREAD)"
                 else:
                     from_prefix = f"[{from_thread_name}-{last_thread_id}]"
+                    from_type = "(WORKER)"
                     
                 if is_main_thread:
-                    to_prefix = f"[MAIN-{thread_id}]"
+                    to_prefix = f"[{Colors.MAIN_THREAD_HIGHLIGHT}MAIN-{thread_id}{Colors.RESET}]"
+                    to_type = "(MAIN THREAD)"
                 else:
                     to_prefix = f"[{thread_name}-{thread_id}]"
+                    to_type = "(WORKER)"
                 
                 # Check if GIL is enabled and use appropriate message
                 gil_enabled = is_gil_enabled()
                 if gil_enabled:
                     switch_type = "GIL SWITCH"
-                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} released GIL → {to_thread_color}{to_prefix}{Colors.RESET} acquired GIL"
+                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} released GIL → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} acquired GIL"
                 else:
                     switch_type = "THREAD SWITCH"
-                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} → {to_thread_color}{to_prefix}{Colors.RESET}"
+                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} → {to_thread_color}{to_prefix}{Colors.RESET} {to_type}"
                 
                 # Release lock before print to minimize contention
                 print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}{switch_type} #{thread_transitions}{Colors.RESET} {action_text}"
@@ -421,6 +564,132 @@ def run_neural_network(image):
     
     return probs
 
+def determine_optimal_batch_size(images, num_threads):
+    """Determine the optimal batch size based on system resources and image count.
+    
+    This function ensures batch sizes are always multiples of 8 and
+    divide 60,000 (MNIST dataset size) evenly for optimal processing.
+    
+    Args:
+        images: Array of images
+        num_threads: Number of processing threads
+    
+    Returns:
+        int: Recommended batch size (optimal for MNIST)
+    """
+    # Get total image count
+    total_image_count = len(images)
+    
+    # Define batch sizes that are:
+    # 1. Multiples of 8 (for memory alignment)
+    # 2. Divide 60,000 evenly (MNIST dataset size)
+    VALID_BATCH_SIZES = [
+        # These are all multiples of 8 that divide 60,000 evenly
+        8,      # 60,000 ÷ 8 = 7,500 batches
+        16,     # 60,000 ÷ 16 = 3,750 batches
+        24,     # 60,000 ÷ 24 = 2,500 batches
+        40,     # 60,000 ÷ 40 = 1,500 batches
+        48,     # 60,000 ÷ 48 = 1,250 batches
+        80,     # 60,000 ÷ 80 = 750 batches
+        96,     # 60,000 ÷ 96 = 625 batches
+        120,    # 60,000 ÷ 120 = 500 batches
+        160,    # 60,000 ÷ 160 = 375 batches
+        200,    # 60,000 ÷ 200 = 300 batches
+        240,    # 60,000 ÷ 240 = 250 batches
+        400,    # 60,000 ÷ 400 = 150 batches
+        600,    # 60,000 ÷ 600 = 100 batches
+        1200    # 60,000 ÷ 1200 = 50 batches
+    ]
+    
+    DEFAULT_BATCH = 120    # Default to 120 (middle ground)
+    MIN_BATCH = 8          # Minimum batch size (multiple of 8)
+    MAX_BATCH = 1200       # Maximum batch size
+    
+    # Safety first - if no images, return the default
+    if total_image_count <= 0:
+        return DEFAULT_BATCH
+    
+    # For the full MNIST dataset or large subsets, use these optimized sizes
+    # Prioritize full dataset (60,000 images) optimization
+    if total_image_count == 60000:
+        # Specifically optimized for 60,000 images, based on thread count
+        if num_threads >= 64:
+            # For many threads, smaller batches prevent thread starvation
+            batch_candidates = [96, 80, 48]
+        elif num_threads >= 32:
+            # Medium-high thread count - balanced batch size
+            batch_candidates = [120, 96, 160] 
+        elif num_threads >= 16:
+            # Medium thread count - medium batch size
+            batch_candidates = [240, 200, 160]
+        elif num_threads >= 8:
+            # Lower thread count - larger batch size
+            batch_candidates = [400, 240, 200]
+        else:
+            # Very low thread count - largest batch sizes
+            batch_candidates = [600, 400, 240]
+    # For other dataset sizes, scale proportionally
+    elif total_image_count > 50000:  # Close to full MNIST
+        batch_candidates = [120, 160, 200, 240]
+    elif total_image_count > 20000:
+        batch_candidates = [96, 120, 160]
+    elif total_image_count > 10000:
+        batch_candidates = [80, 96, 120]
+    elif total_image_count > 5000:
+        batch_candidates = [48, 80, 96]
+    elif total_image_count > 1000:
+        batch_candidates = [24, 40, 48]
+    else:
+        batch_candidates = [8, 16, 24]
+    
+    # Additional adjustment factor: try to have at least 4 batches per thread
+    # to ensure good thread utilization
+    batches_per_thread = 4
+    max_ideal_batch = total_image_count // (num_threads * batches_per_thread)
+    
+    # Find the largest valid batch size that doesn't exceed max_ideal_batch
+    selected_batch = None
+    for batch_size in sorted(batch_candidates):
+        if batch_size <= max_ideal_batch:
+            selected_batch = batch_size
+        else:
+            break
+    
+    # If no batch size is small enough, use the smallest valid batch size
+    if selected_batch is None:
+        # Find smallest batch size from valid sizes
+        for batch_size in VALID_BATCH_SIZES:
+            if batch_size <= max_ideal_batch or batch_size == MIN_BATCH:
+                selected_batch = batch_size
+                break
+        
+        # Fallback to absolute minimum if needed
+        if selected_batch is None:
+            selected_batch = MIN_BATCH
+    
+    # Try to ensure total_image_count is divisible by both batch_size and num_threads
+    # for even distribution
+    for batch_size in VALID_BATCH_SIZES:
+        # Look for a batch size that:
+        # 1. Divides image count evenly
+        # 2. Is close to the selected batch size
+        # 3. Results in an integer number of batches per thread
+        if (total_image_count % batch_size == 0 and 
+            batch_size <= selected_batch * 2 and 
+            batch_size >= selected_batch / 2 and
+            (total_image_count // batch_size) % num_threads == 0):
+            selected_batch = batch_size
+            break
+    
+    # Log the selected batch size and its properties
+    safe_print(
+        f"Using batch size: {selected_batch} images per batch " +
+        f"(multiple of 8, divides 60,000 evenly)",
+        level=LogLevel.SYSTEM
+    )
+    
+    return selected_batch
+
 def display_benchmark_results(total_time, total_images_processed, successful_threads, num_threads, thread_transitions):
     """Display comprehensive benchmark results.
     
@@ -450,74 +719,6 @@ def display_benchmark_results(total_time, total_images_processed, successful_thr
     safe_print(f"{switch_term} rate: {switches_per_second:.2f} switches/second", level=LogLevel.BENCHMARK)
     safe_print(f"{Colors.BOLD}{Colors.YELLOW}======================================={Colors.RESET}", level=LogLevel.BENCHMARK)
 
-def determine_optimal_batch_size(images, num_threads):
-    """Determine the optimal batch size based on system resources and image count.
-    
-    This function uses batch sizes that divide MNIST's 60,000 images evenly,
-    while maintaining multiples of 8 for memory alignment.
-    
-    Args:
-        images: Array of images
-        num_threads: Number of processing threads
-    
-    Returns:
-        int: Recommended batch size (optimal for MNIST)
-    """
-    # Get total image count
-    total_image_count = len(images)
-    
-    # Define safe, hard-coded limits - all divisible by 8 AND divide 60,000 evenly
-    ABSOLUTE_MAX_BATCH = 240   # Divides 60,000 into 250 batches
-    DEFAULT_BATCH = 120        # Divides 60,000 into 500 batches
-    MIN_BATCH = 40             # Divides 60,000 into 1,500 batches
-    
-    # Safety first - if no images, return the default
-    if total_image_count <= 0:
-        return DEFAULT_BATCH
-    
-    # MNIST-optimized batch sizes
-    # These values are chosen to:
-    # 1. Be multiples of 8 (for memory alignment)
-    # 2. Divide 60,000 evenly (for clean batch processing)
-    # 3. Scale appropriately with dataset size
-    if total_image_count > 50000:
-        # Very large dataset (close to full MNIST dataset of 60K)
-        # 60,000 ÷ 120 = 500 batches
-        batch_size = 120  
-    elif total_image_count > 10000:
-        # Large dataset
-        # 60,000 ÷ 160 = 375 batches
-        batch_size = 160
-    elif total_image_count > 5000:
-        # Medium dataset
-        # 60,000 ÷ 200 = 300 batches
-        batch_size = 200
-    else:
-        # Small dataset
-        # 60,000 ÷ 240 = 250 batches
-        batch_size = 240
-    
-    # Extra safety check: make sure batch size doesn't exceed images per thread
-    max_per_thread = total_image_count // num_threads
-    if max_per_thread < batch_size:
-        # Find the largest divisor of 60,000 that is also a multiple of 8
-        # and less than or equal to max_per_thread
-        divisors = [240, 200, 160, 120, 80, 40]
-        for div in divisors:
-            if div <= max_per_thread:
-                batch_size = div
-                break
-        else:
-            # If no good divisor found, fall back to a multiple of 8
-            batch_size = max((max_per_thread // 8) * 8, MIN_BATCH)
-    
-    # Final guard against extreme values
-    batch_size = min(batch_size, ABSOLUTE_MAX_BATCH)
-    batch_size = max(batch_size, MIN_BATCH)
-    
-    safe_print(f"Using MNIST-optimized batch size: {batch_size} images per batch (divides 60,000 evenly)", level=LogLevel.SYSTEM)
-    return batch_size
-
 def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_threads=1):
     """Process a chunk of images with computationally intensive operations."""
     # Get thread information - this is a worker thread from the pool
@@ -529,6 +730,7 @@ def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_thre
     # Clearly identify this is a worker thread, not the main thread
     is_main = (thread_id == MAIN_THREAD_ID)
     thread_type = "MAIN" if is_main else "WORKER"
+    thread_type_display = f"({Colors.BOLD}{thread_type} THREAD{Colors.RESET})"
     
     # Initialize thread-local neural network for this thread
     if not hasattr(thread_local_cache, 'nn_cache'):
@@ -542,7 +744,7 @@ def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_thre
     ])
     
     safe_print(
-        f"Starting to process chunk {chunk_id} with {len(images_chunk)} images (Thread type: {thread_type})", 
+        f"Starting to process chunk {chunk_id} with {len(images_chunk)} images {thread_type_display}", 
         level=LogLevel.THREAD_START,
         force_print=True
     )
@@ -556,7 +758,7 @@ def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_thre
     num_batches = max(1, len(images_chunk) // batch_size)
     actual_batch_size = len(images_chunk) // num_batches if num_batches > 0 else len(images_chunk)
     
-    safe_print(f"{thread_color}Processing chunk {chunk_id} in {num_batches} batches of ~{actual_batch_size} images each{Colors.RESET}", level="INFO", force_print=True)
+    safe_print(f"{thread_color}Processing chunk {chunk_id} in {num_batches} batches of ~{actual_batch_size} images each {thread_type_display}{Colors.RESET}", level=LogLevel.INFO, force_print=True)
     
     try:
         batch_start_time = time.time()
@@ -570,7 +772,7 @@ def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_thre
             
             # Convolution operation - vectorized
             if batch_idx == 0:
-                safe_print(f"{Colors.MAGENTA}Batch {batch_idx+1}/{num_batches} - Processing convolution on {images_count} images{Colors.RESET}", level="BATCH", force_print=True)
+                safe_print(f"{Colors.level_colors[LogLevel.BATCH_START]}Batch {batch_idx+1}/{num_batches} - Processing convolution on {images_count} images {thread_type_display}{Colors.RESET}", level=LogLevel.BATCH_START, force_print=True)
             
             for i in range(iterations):
                 conv_start = time.time()
@@ -582,7 +784,7 @@ def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_thre
             
             # Rotation operation - vectorized
             if batch_idx == 0:
-                safe_print(f"{Colors.MAGENTA}Batch {batch_idx+1}/{num_batches} - Processing rotation on {images_count} images{Colors.RESET}", level="BATCH", force_print=True)
+                safe_print(f"{Colors.level_colors[LogLevel.BATCH_START]}Batch {batch_idx+1}/{num_batches} - Processing rotation on {images_count} images {thread_type_display}{Colors.RESET}", level=LogLevel.BATCH_START, force_print=True)
             
             for i in range(iterations):
                 rot_start = time.time()
@@ -594,7 +796,7 @@ def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_thre
             
             # Neural network processing - optimized with cached weights
             if batch_idx == 0:
-                safe_print(f"{Colors.MAGENTA}Batch {batch_idx+1}/{num_batches} - Running neural network on {images_count} images{Colors.RESET}", level="BATCH", force_print=True)
+                safe_print(f"{Colors.level_colors[LogLevel.BATCH_START]}Batch {batch_idx+1}/{num_batches} - Running neural network on {images_count} images {thread_type_display}{Colors.RESET}", level=LogLevel.BATCH_START, force_print=True)
             
             for i in range(iterations):
                 nn_start = time.time()
@@ -608,7 +810,7 @@ def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_thre
             
             # Only log every 10th batch to reduce thread contention from logging
             if batch_idx % 10 == 0 or batch_idx == num_batches - 1:
-                safe_print(f"{thread_color}Completed batch {batch_idx+1}/{num_batches} of chunk {chunk_id} in {batch_item_time:.2f}s ({images_count} images){Colors.RESET}", level="INFO", force_print=True)
+                safe_print(f"{thread_color}Completed batch {batch_idx+1}/{num_batches} of chunk {chunk_id} in {batch_item_time:.2f}s ({images_count} images) {thread_type_display}{Colors.RESET}", level=LogLevel.INFO, force_print=True)
         
         total_chunk_time = time.time() - batch_start_time
         
@@ -625,11 +827,45 @@ def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_thre
             'processing_time': total_chunk_time
         }
         
-        safe_print(f"{thread_color}Chunk {chunk_id} complete - processed {len(images_chunk)} images in {total_chunk_time:.2f}s{Colors.RESET}", level="INFO", force_print=True)
+        safe_print(f"{thread_color}Chunk {chunk_id} complete - processed {len(images_chunk)} images in {total_chunk_time:.2f}s {thread_type_display}{Colors.RESET}", level=LogLevel.INFO, force_print=True)
         return result
     except Exception as e:
-        safe_print(f"{thread_color}Error in chunk {chunk_id}: {e}{Colors.RESET}", level="ERROR", force_print=True)
+        safe_print(f"{thread_color}Error in chunk {chunk_id}: {e} {thread_type_display}{Colors.RESET}", level=LogLevel.ERROR, force_print=True)
         raise
+
+def process_large_image_dataset(images, num_threads=None, iterations=1):
+    """Process a large image dataset with optimized batching.
+    
+    This function is designed to efficiently process all 60,000 MNIST images
+    using batch sizes that are multiples of 8 and optimized for the dataset size.
+    
+    Args:
+        images: Image dataset (numpy array)
+        num_threads: Number of threads to use (default: calculated based on CPU cores)
+        iterations: Number of processing iterations per image
+        
+    Returns:
+        tuple: (total_time, total_images_processed)
+    """
+    # If threads not specified, calculate optimal count based on CPU cores
+    if num_threads is None:
+        num_threads = calculate_optimal_thread_count()
+    
+    safe_print(f"Processing all {len(images)} images using {num_threads} threads", level=LogLevel.SYSTEM)
+    
+    # Determine optimal batch size based on image count and thread count
+    # This ensures batch sizes are multiples of 8 and divide 60,000 evenly
+    batch_size = determine_optimal_batch_size(images, num_threads)
+    
+    # Run the processing with the calculated batch size
+    return run_mnist_processing_multithreaded(
+        images, 
+        num_threads=num_threads, 
+        batch_size=batch_size,
+        iterations=iterations,
+        timeout=3600,  # 1 hour timeout
+        image_limit=0  # Process all images
+    )
 
 def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, iterations=1, timeout=24*3600, image_limit=0):
     """Run CPU-intensive processing on MNIST images using multiple threads."""
@@ -677,7 +913,7 @@ def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, ite
         force_print=True
     )
     safe_print(
-        f"Main thread is {Colors.ORANGE}MAIN-{main_thread_id}{Colors.RESET} at address 0x{main_address:x}",
+        f"Main thread is {Colors.MAIN_THREAD_HIGHLIGHT}MAIN-{main_thread_id}{Colors.RESET} at address 0x{main_address:x}",
         level=LogLevel.SYSTEM,
         force_print=True
     )
@@ -701,20 +937,55 @@ def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, ite
     
     start_time = time.time()
     
-    # Divide images into chunks for each thread
-    chunk_size = len(images) // num_threads
+    # Ensure division is even to avoid fractional chunks
+    # First, find a chunk size that divides evenly into the image count
+    total_images = len(images)
+    
+    # Calculate the largest chunk size that:
+    # 1. Divides evenly into total_images
+    # 2. Results in at least num_threads chunks
+    chunk_candidates = []
+    for chunk_size in range(1, total_images + 1):
+        if total_images % chunk_size == 0:
+            num_chunks = total_images // chunk_size
+            if num_chunks >= num_threads:
+                chunk_candidates.append((chunk_size, num_chunks))
+    
+    # Find the chunk configuration that gives us exactly num_threads chunks
+    # or slightly more (but never less)
+    chunk_size = 1  # Default
+    num_chunks = total_images  # Default
+    
+    for size, chunks in sorted(chunk_candidates, key=lambda x: abs(x[1] - num_threads)):
+        if chunks >= num_threads:
+            chunk_size = size
+            num_chunks = chunks
+            if chunks == num_threads:  # Perfect match
+                break
+    
+    # Now we know our chunk configuration won't have fractional chunks
+    safe_print(
+        f"Dividing {total_images} images into {num_chunks} chunks of {chunk_size} images each",
+        level=LogLevel.SYSTEM
+    )
+    
+    # Create chunked indices to ensure even division
     chunks = []
     total_images_to_process = 0
-    for i in range(num_threads):
+    for i in range(num_chunks):
         start_idx = i * chunk_size
-        end_idx = start_idx + chunk_size if i < num_threads - 1 else len(images)
+        end_idx = start_idx + chunk_size
         chunk_images = images[start_idx:end_idx]
         chunks.append(chunk_images)
         total_images_to_process += len(chunk_images)
-        safe_print(
-            f"Created chunk {i} with {len(chunk_images)} images (indexes {start_idx}-{end_idx-1})",
-            level=LogLevel.SYSTEM
-        )
+        
+        if i < 5 or i >= num_chunks - 5:  # Log first and last 5 chunks
+            safe_print(
+                f"Created chunk {i+1}/{num_chunks} with {len(chunk_images)} images (indexes {start_idx}-{end_idx-1})",
+                level=LogLevel.SYSTEM
+            )
+        elif i == 5:
+            safe_print("... more chunks ...", level=LogLevel.SYSTEM)
     
     safe_print(f"Total images to process: {total_images_to_process}", level=LogLevel.SYSTEM)
     
@@ -733,54 +1004,83 @@ def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, ite
         future_to_chunk = {}
         
         try:
-            # Submit all tasks first
-            for i, chunk in enumerate(chunks):
-                safe_print(f"Submitting chunk {i} to thread pool", level=LogLevel.SYSTEM)
-                future = executor.submit(process_chunk, i, chunk, iterations, batch_size, num_threads)
+            # Submit tasks up to the number of threads
+            for i in range(min(num_chunks, num_threads)):
+                safe_print(f"Submitting chunk {i+1}/{num_chunks} to thread pool", level=LogLevel.SYSTEM)
+                future = executor.submit(process_chunk, i, chunks[i], iterations, batch_size, num_threads)
                 future_to_chunk[future] = i
                 futures_list.append(future)
             
+            # If there are more chunks than threads, they'll be submitted as earlier ones complete
+            next_chunk_idx = min(num_chunks, num_threads)
+            
             safe_print(
-                f"All {len(chunks)} chunks submitted to thread pool, waiting for results", 
+                f"Initial {len(futures_list)} chunks submitted to thread pool ({next_chunk_idx}/{num_chunks})", 
                 level=LogLevel.SYSTEM
             )
             
             # Collect results as they complete, with timeout
             completed_futures = 0
             for future in concurrent.futures.as_completed(future_to_chunk, timeout=timeout):
-                chunk_id = future_to_chunk[future]
+                chunk_idx = future_to_chunk[future]
                 try:
-                    safe_print(f"Receiving result from chunk {chunk_id}", level=LogLevel.SYSTEM)
+                    safe_print(f"Receiving result from chunk {chunk_idx+1}", level=LogLevel.SYSTEM)
                     result = future.result()
                     results.append(result)
                     completed_futures += 1
+                    
                     # Get thread color for thread ID
                     thread_id = result.get('thread_id')
                     thread_name = get_thread_name(thread_id)
                     thread_type = result.get('thread_type', 'UNKNOWN')
+                    thread_color = Colors.get_thread_color(thread_id)
+                    
+                    # Make thread type visually distinct
+                    if thread_type == "MAIN":
+                        thread_type_display = f"({Colors.BOLD}MAIN THREAD{Colors.RESET})"
+                    else:
+                        thread_type_display = f"(WORKER THREAD)"
+                    
                     safe_print(
-                        f"Thread {thread_name} (type: {thread_type}) completed chunk {chunk_id} with {result.get('num_images', 0)} images",
+                        f"{thread_color}Thread {thread_name} {thread_type_display} completed chunk {chunk_idx+1} with {result.get('num_images', 0)} images{Colors.RESET}",
                         level=LogLevel.SYSTEM
                     )
+                    
+                    # Submit the next chunk if available
+                    if next_chunk_idx < num_chunks:
+                        safe_print(f"Submitting next chunk {next_chunk_idx+1}/{num_chunks} to thread pool", level=LogLevel.SYSTEM)
+                        next_future = executor.submit(process_chunk, next_chunk_idx, chunks[next_chunk_idx], iterations, batch_size, num_threads)
+                        future_to_chunk[next_future] = next_chunk_idx
+                        futures_list.append(next_future)
+                        next_chunk_idx += 1
+                    
                 except Exception as e:
                     safe_print(
-                        f"Error handling result from chunk {chunk_id}: {e}", 
+                        f"Error handling result from chunk {chunk_idx+1}: {e}", 
                         level=LogLevel.ERROR
                     )
                     # Add partial result with error information
                     results.append({
-                        'chunk_id': chunk_id,
+                        'chunk_id': chunk_idx,
                         'error': str(e),
                         'conv_times': [],
                         'rotation_times': [],
                         'nn_times': [],
-                        'num_images': len(chunks[chunk_id]),
+                        'num_images': len(chunks[chunk_idx]),
                         'thread_id': threading.get_ident(),
                         'thread_name': get_thread_name(threading.get_ident()),
                         'thread_type': 'MAIN' if threading.get_ident() == MAIN_THREAD_ID else 'WORKER'
                     })
+                    
+                    # Try to submit the next chunk despite this error
+                    if next_chunk_idx < num_chunks:
+                        safe_print(f"Submitting next chunk {next_chunk_idx+1}/{num_chunks} to thread pool (after error)", level=LogLevel.SYSTEM)
+                        next_future = executor.submit(process_chunk, next_chunk_idx, chunks[next_chunk_idx], iterations, batch_size, num_threads)
+                        future_to_chunk[next_future] = next_chunk_idx
+                        futures_list.append(next_future)
+                        next_chunk_idx += 1
             
-            safe_print(f"Completed {completed_futures}/{len(chunks)} chunks", level=LogLevel.SYSTEM)
+            safe_print(f"Completed {completed_futures}/{num_chunks} chunks", level=LogLevel.SYSTEM)
         
         except concurrent.futures.TimeoutError:
             safe_print(
@@ -793,7 +1093,7 @@ def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, ite
                 f"Cancelling {len(remaining_futures)} remaining tasks", 
                 level=LogLevel.WARNING
             )
-            for future in future_to_chunk:
+            for future in futures_list:
                 if not future.done():
                     future.cancel()
         
@@ -935,10 +1235,10 @@ def main():
     
     # Set up command line arguments
     parser = argparse.ArgumentParser(description='Run MNIST GIL demonstration with multiple threads')
-    parser.add_argument('--threads', type=int, default=0, help='Number of threads to use (0 for auto-detection)')
+    parser.add_argument('--threads', type=int, default=0, help='Number of threads to use (0 for auto-determination)')
     parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
-    parser.add_argument('--timeout', type=int, default=24*3600, help='Timeout in seconds (default: 24 hours)')
-    parser.add_argument('--image-limit', type=int, default=0, help='Number of images to process (0 for all images)')
+    parser.add_argument('--timeout', type=int, default=3600, help='Timeout in seconds (default: 1 hour)')
+    parser.add_argument('--image-limit', type=int, default=0, help='Number of images to process (0 for all 60,000 images)')
     parser.add_argument('--log-dir', type=str, default='logs', help='Directory to store log files')
     parser.add_argument('--data-dir', type=str, default='.', help='Directory for data files')
     parser.add_argument('--cleanup', action='store_true', help='Clean up downloaded files after execution')
@@ -951,9 +1251,10 @@ def main():
     verbose = args.verbose or True  # Default to verbose mode if not specified
     track_thread_switches = args.track_switches  # Allow disabling thread switch tracking
     
-    # Auto-detect number of threads if not specified
+    # Auto-detect optimal number of threads if not specified
     if args.threads <= 0:
-        num_threads = multiprocessing.cpu_count() * 2
+        num_threads = calculate_optimal_thread_count()
+        safe_print(f"Auto-determined optimal thread count: {num_threads} threads", level=LogLevel.SYSTEM, force_print=True)
     else:
         num_threads = args.threads
     
@@ -969,9 +1270,9 @@ def main():
     # Set up logging with both console and file output
     logger = setup_logging(num_threads, args.log_dir)
     
-    # Log benchmark initialization
+    # Log benchmark initialization with distinctive main thread formatting
     safe_print(
-        f"{Colors.BOLD}{Colors.ORANGE}MNIST Thread Processing Benchmark initializing{Colors.RESET}",
+        f"{Colors.MAIN_THREAD_HIGHLIGHT}MNIST Thread Processing Benchmark initializing{Colors.RESET} (MAIN THREAD)",
         level=LogLevel.SYSTEM,
         force_print=True
     )
@@ -1019,6 +1320,10 @@ def main():
         
         safe_print(f"Loaded {len(images)} images from MNIST dataset", level=LogLevel.SYSTEM)
         
+        # Print thread color and name legend for reference
+        safe_print(f"{Colors.MAIN_THREAD_HIGHLIGHT}Thread naming convention:{Colors.RESET} MAIN thread uses special gold color, worker threads named after famous guitarists", level=LogLevel.SYSTEM)
+        safe_print("Each thread will have a unique color for easier log reading", level=LogLevel.SYSTEM)
+        
         # Show configuration
         threading_mode = "GIL-enabled threading" if gil_status else "GIL-disabled threading"
         safe_print(
@@ -1029,41 +1334,71 @@ def main():
         
         # Run the multithreaded processing
         safe_print(
-            f"{Colors.BOLD}Starting benchmark with {num_threads} threads{Colors.RESET}", 
+            f"{Colors.MAIN_THREAD_HIGHLIGHT}Starting benchmark with {num_threads} threads{Colors.RESET} (MAIN THREAD)", 
             level=LogLevel.SYSTEM
         )
         
-        total_time, total_processed = run_mnist_processing_multithreaded(
-            images, num_threads, args.batch_size, args.iterations, args.timeout, args.image_limit
+        # Process all 60,000 images unless limited by command line option
+        image_limit = args.image_limit
+        
+        if image_limit > 0:
+            safe_print(f"Processing limited subset of {image_limit} images", level=LogLevel.SYSTEM)
+            target_images = images[:image_limit]
+        else:
+            safe_print(f"Processing complete dataset of {len(images)} images", level=LogLevel.SYSTEM)
+            target_images = images
+            
+        total_time, total_processed = process_large_image_dataset(
+            target_images,
+            num_threads=num_threads,
+            iterations=args.iterations
         )
         
-        safe_print(f"Benchmark complete", level=LogLevel.SYSTEM)
+        safe_print(f"{Colors.MAIN_THREAD_HIGHLIGHT}Benchmark complete{Colors.RESET} (MAIN THREAD)", level=LogLevel.SYSTEM)
         
         return 0
     except KeyboardInterrupt:
-        safe_print(f"Process interrupted by user", level=LogLevel.WARNING)
+        safe_print(f"{Colors.MAIN_THREAD_HIGHLIGHT}Process interrupted by user{Colors.RESET} (MAIN THREAD)", level=LogLevel.WARNING)
         return 130  # Standard Unix exit code for SIGINT
     except Exception as e:
-        safe_print(f"Unhandled exception: {e}", level=LogLevel.ERROR)
+        safe_print(f"{Colors.MAIN_THREAD_HIGHLIGHT}Unhandled exception: {e}{Colors.RESET} (MAIN THREAD)", level=LogLevel.ERROR)
         import traceback
         safe_print(f"Exception trace: {traceback.format_exc()}", level=LogLevel.ERROR)
         return 1
     finally:
         # Always clean up resources in the finally block
         if args.cleanup:
-            safe_print(f"Cleaning up downloaded files...", level=LogLevel.SYSTEM)
+            safe_print(f"{Colors.MAIN_THREAD_HIGHLIGHT}Cleaning up downloaded files...{Colors.RESET} (MAIN THREAD)", level=LogLevel.SYSTEM)
             cleanup_files(args.data_dir)
         
         if log_file:
-            safe_print(f"Logs saved to: {log_file}", level=LogLevel.SYSTEM)
+            safe_print(f"{Colors.MAIN_THREAD_HIGHLIGHT}Logs saved to: {log_file}{Colors.RESET} (MAIN THREAD)", level=LogLevel.SYSTEM)
             
-        # Print guitarist legend
-        if len(thread_names) > 1:
-            safe_print("Thread name legend:", level=LogLevel.SYSTEM)
-            for thread_id, name in thread_names.items():
-                thread_color = Colors.get_thread_color(thread_id)
+        # Print thread legend for all threads used
+        active_threads = sorted(thread_names.items(), key=lambda x: x[0])
+        if len(active_threads) > 0:
+            safe_print(f"{Colors.MAIN_THREAD_HIGHLIGHT}Thread name legend:{Colors.RESET} (MAIN THREAD)", level=LogLevel.SYSTEM)
+            
+            # First, print the main thread
+            safe_print(
+                f"{Colors.MAIN_THREAD_HIGHLIGHT}[MAIN-{MAIN_THREAD_ID}]{Colors.RESET} - MAIN THREAD",
+                level=LogLevel.SYSTEM
+            )
+            
+            # Then print worker threads (up to 16)
+            max_display = min(16, len(active_threads))
+            for thread_id, name in active_threads[:max_display]:
+                if thread_id != MAIN_THREAD_ID:  # Skip main thread, already printed
+                    thread_color = Colors.get_thread_color(thread_id)
+                    safe_print(
+                        f"{thread_color}[{name}-{thread_id}]{Colors.RESET} - WORKER THREAD",
+                        level=LogLevel.SYSTEM
+                    )
+            
+            # Indicate if more threads were used but not displayed
+            if len(active_threads) > max_display:
                 safe_print(
-                    f"{thread_color}[{name}-{thread_id}]{Colors.RESET} - Thread {thread_id}",
+                    f"... and {len(active_threads) - max_display} more threads (not shown)",
                     level=LogLevel.SYSTEM
                 )
 
