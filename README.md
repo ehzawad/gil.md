@@ -1080,7 +1080,3 @@ PYTHON_GIL=1 python david_gilmour.py
 # Without gil
 PYTHON_GIL=0 python david_gilmour.py
 ```
-
-# With GIL disabled 
-PYTHON_GIL=0 python mnist_asyncio_gil.py
-```
