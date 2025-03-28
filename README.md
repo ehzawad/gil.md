@@ -295,7 +295,7 @@ if __name__ == "__main__":
 
 ```bash
 # With GIL enabled
-PYTHON_GIL=1 python mnist_asyncio_gil.py
+PYTHON_GIL=1 python david_gilmour.py
 ```
 
 # With GIL disabled 
