@@ -22,7 +22,10 @@ A simple patch to the Python source code fixes the compatibility issues with Ope
 - macOS (tested on macOS 15.4)
 - Xcode Command Line Tools (`xcode-select --install`)
 - Homebrew installed packages:
-  - `brew install openssl@3 gdbm sqlite readline xz mpdecimal pkgconf`
+
+```bash
+brew install openssl@3 gdbm sqlite readline xz mpdecimal pkgconf
+```
 - Python 3.13.2 source code
 
 ## Installation Steps
