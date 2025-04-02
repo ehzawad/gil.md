@@ -30,6 +30,11 @@ EOF
 patch -p1 < openssl3_compat.patch
 ```
 
+# install dependencies using brew
+```bash
+brew install openssl@3 gdbm sqlite readline xz mpdecimal pkgconf
+```
+
 # 3. Fix the mpdecimal configuration for macOS
 ```bash
 if [ "$(uname -m)" = "arm64" ]; then
