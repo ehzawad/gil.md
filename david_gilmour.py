@@ -247,12 +247,77 @@ MAIN_THREAD_ID = threading.get_ident()
 # Global variables
 num_threads = 8  # Will be updated based on CPU count
 last_thread_id = None  # For thread transition tracking
-thread_transitions = 0  # Count of thread switches
+gil_transitions = 0  # Count of GIL acquisitions/releases when GIL is enabled
+thread_switches = 0  # Count of thread context switches when GIL is disabled
 print_lock = Lock()  # For thread-safe printing
 verbose = True  # Default to verbose mode
 thread_names = {}  # Maps thread IDs to names
 active_thread = MAIN_THREAD_ID  # Track which thread is currently active
 track_thread_switches = True  # Can be disabled for maximum performance
+
+class ThreadTransitionTracker:
+    """Encapsulates thread transition tracking with GIL awareness."""
+    
+    def __init__(self):
+        self.gil_transitions = 0  # Count when GIL is enabled
+        self.thread_switches = 0  # Count when GIL is disabled
+        self.last_thread_id = None
+        self.active_thread_id = None
+        self.thread_names = {}  # Maps thread IDs to names
+        self.enabled = True  # Can be disabled for maximum performance
+    
+    def register_thread_name(self, thread_id, thread_name):
+        """Register a name for a thread ID."""
+        self.thread_names[thread_id] = thread_name
+    
+    def get_thread_name(self, thread_id):
+        """Get the name for a thread ID."""
+        if thread_id == MAIN_THREAD_ID:
+            return "MAIN"
+        return self.thread_names.get(thread_id, f"Thread-{thread_id}")
+    
+    def record_transition(self, from_thread_id, to_thread_id):
+        """Record a thread transition with GIL awareness."""
+        if not self.enabled:
+            return None
+            
+        self.last_thread_id = to_thread_id
+        self.active_thread_id = to_thread_id
+        
+        gil_enabled = is_gil_enabled()
+        if gil_enabled:
+            self.gil_transitions += 1
+            return {
+                "type": "GIL_SWITCH",
+                "count": self.gil_transitions,
+                "action": "GIL acquisition"
+            }
+        else:
+            self.thread_switches += 1
+            return {
+                "type": "THREAD_SWITCH",
+                "count": self.thread_switches,
+                "action": "Thread context switch"
+            }
+    
+    def get_stats(self, elapsed_time=None):
+        """Get transition statistics."""
+        gil_enabled = is_gil_enabled()
+        count = self.gil_transitions if gil_enabled else self.thread_switches
+        term = "GIL SWITCH transitions" if gil_enabled else "THREAD SWITCH events"
+        
+        stats = {
+            "count": count,
+            "term": term
+        }
+        
+        if elapsed_time and elapsed_time > 0:
+            stats["rate"] = count / elapsed_time
+        
+        return stats
+
+# Initialize thread transition tracker
+transition_tracker = ThreadTransitionTracker()
 
 def calculate_optimal_thread_count():
     """Calculate optimal thread count based on CPU cores available.
@@ -291,6 +356,36 @@ def get_thread_name(thread_id):
         
     return thread_names[thread_id]
 
+def is_gil_enabled():
+    """Check if GIL is enabled in this Python process.
+    
+    Examines the PYTHON_GIL environment variable:
+    - "1" or empty/missing means GIL is enabled (standard Python behavior)
+    - "0" means GIL is disabled (Python 3.13+ free-threading mode)
+    
+    Returns:
+        bool: True if GIL is enabled, False if disabled
+    """
+    gil_status = os.environ.get("PYTHON_GIL", "1")
+    return gil_status == "1"
+
+def get_gil_status_string(with_color=True):
+    """Get a formatted status string describing the current GIL state."""
+    gil_enabled = is_gil_enabled()
+    
+    if gil_enabled:
+        description = "Python interpreter locks bytecode execution to one thread at a time"
+        threading_mode = "GIL-controlled thread access to Python interpreter"
+    else:
+        description = "Free-threading mode with true parallel Python execution"
+        threading_mode = "Native OS-scheduled threads without GIL constraints"
+    
+    if with_color:
+        color = Colors.YELLOW if gil_enabled else Colors.GREEN
+        return f"{Colors.BOLD}{color}Python GIL is {'ENABLED' if gil_enabled else 'DISABLED'}{Colors.RESET} - {description}"
+    else:
+        return f"Python GIL is {'ENABLED' if gil_enabled else 'DISABLED'} - {description}"
+
 def safe_print(message, level=LogLevel.INFO, force_print=False):
     """Thread-safe printing without excessive synchronization.
     
@@ -298,7 +393,7 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
     the actual print operation, allowing the OS and Python interpreter
     to handle thread scheduling naturally.
     """
-    global print_lock, verbose, log_file, last_thread_id, thread_transitions, active_thread, track_thread_switches
+    global print_lock, verbose, log_file, last_thread_id, gil_transitions, thread_switches, active_thread, track_thread_switches
     
     if not verbose and not force_print:
         return
@@ -338,7 +433,19 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
         # Take a short lock just to check/update thread transition tracking
         with print_lock:
             if last_thread_id is not None and last_thread_id != thread_id:
-                thread_transitions += 1
+                # Check if GIL is enabled and use appropriate counter and message
+                gil_enabled = is_gil_enabled()
+                if gil_enabled:
+                    gil_transitions += 1  # Count GIL transitions
+                    switch_num = gil_transitions
+                    switch_type = "GIL SWITCH"
+                    action_verb = "acquired GIL"
+                else:
+                    thread_switches += 1  # Count thread switches
+                    switch_num = thread_switches
+                    switch_type = "THREAD SWITCH"
+                    action_verb = "active"
+                
                 from_thread_name = get_thread_name(last_thread_id)
                 from_thread_color = Colors.get_thread_color(last_thread_id)
                 to_thread_color = thread_color
@@ -361,17 +468,14 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
                     to_prefix = f"[{thread_name}-{thread_id}]"
                     to_type = "(WORKER)"
                 
-                # Check if GIL is enabled and use appropriate message
-                gil_enabled = is_gil_enabled()
+                # Create appropriate message based on GIL mode
                 if gil_enabled:
-                    switch_type = "GIL SWITCH"
-                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} released GIL → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} acquired GIL"
+                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} released GIL → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} {action_verb}"
                 else:
-                    switch_type = "THREAD SWITCH"
-                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} → {to_thread_color}{to_prefix}{Colors.RESET} {to_type}"
+                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} {action_verb}"
                 
                 # Release lock before print to minimize contention
-                print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}{switch_type} #{thread_transitions}{Colors.RESET} {action_text}"
+                print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}{switch_type} #{switch_num}{Colors.RESET} {action_text}"
                 
                 # Update for next time
                 last_thread_id = thread_id
@@ -384,7 +488,7 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
                     try:
                         with open(log_file, 'a') as f:
                             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            f.write(f"{timestamp} - {LogLevel.THREAD_SWITCH} - {switch_type} #{thread_transitions}: {from_prefix} → {to_prefix}\n")
+                            f.write(f"{timestamp} - {LogLevel.THREAD_SWITCH} - {switch_type} #{switch_num}: {from_prefix} → {to_prefix}\n")
                     except IOError:
                         # Don't crash if log file can't be written
                         pass
@@ -408,11 +512,6 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
         except IOError:
             # Don't crash if log file can't be written
             pass
-
-def is_gil_enabled():
-    """Check if GIL is enabled in this Python process."""
-    gil_status = os.environ.get("PYTHON_GIL", "1")
-    return gil_status == "1"
 
 def download_mnist(data_dir="."):
     """Download MNIST dataset if not already present.
@@ -682,7 +781,7 @@ def determine_optimal_batch_size(images, num_threads):
     
     return selected_batch
 
-def display_benchmark_results(total_time, total_images_processed, successful_threads, num_threads, thread_transitions):
+def display_benchmark_results(total_time, total_images_processed, successful_threads, num_threads):
     """Display comprehensive benchmark results.
     
     Args:
@@ -690,16 +789,21 @@ def display_benchmark_results(total_time, total_images_processed, successful_thr
         total_images_processed: Total number of images processed
         successful_threads: Number of threads that completed successfully
         num_threads: Total number of threads used
-        thread_transitions: Number of thread transitions/GIL switches observed
     """
     # Calculate metrics
     images_per_second = total_images_processed / total_time if total_time > 0 else 0
     thread_efficiency = successful_threads / num_threads if num_threads > 0 else 0
-    switches_per_second = thread_transitions / total_time if total_time > 0 else 0
     
-    # Check if GIL is enabled for correct terminology
+    # Check if GIL is enabled for correct terminology and counter
     gil_status = is_gil_enabled()
-    switch_term = "GIL transitions" if gil_status else "Thread switches"
+    if gil_status:
+        switch_count = gil_transitions
+        switch_term = "GIL SWITCH transitions"
+    else:
+        switch_count = thread_switches
+        switch_term = "THREAD SWITCH events"
+    
+    switches_per_second = switch_count / total_time if total_time > 0 else 0
     
     # Display summary
     safe_print(f"{Colors.BOLD}{Colors.YELLOW}=========== BENCHMARK RESULTS ==========={Colors.RESET}", level=LogLevel.BENCHMARK)
@@ -707,7 +811,7 @@ def display_benchmark_results(total_time, total_images_processed, successful_thr
     safe_print(f"Total images processed: {total_images_processed}", level=LogLevel.BENCHMARK)
     safe_print(f"Processing rate: {images_per_second:.2f} images/second", level=LogLevel.BENCHMARK)
     safe_print(f"Thread efficiency: {thread_efficiency:.2%} ({successful_threads}/{num_threads} threads successful)", level=LogLevel.BENCHMARK)
-    safe_print(f"{switch_term} observed: {thread_transitions}", level=LogLevel.BENCHMARK)
+    safe_print(f"{switch_term} observed: {switch_count}", level=LogLevel.BENCHMARK)
     safe_print(f"{switch_term} rate: {switches_per_second:.2f} switches/second", level=LogLevel.BENCHMARK)
     safe_print(f"{Colors.BOLD}{Colors.YELLOW}======================================={Colors.RESET}", level=LogLevel.BENCHMARK)
 
@@ -862,8 +966,9 @@ def process_large_image_dataset(images, num_threads=None, iterations=1):
 def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, iterations=1, timeout=24*3600, image_limit=0):
     """Run CPU-intensive processing on MNIST images using multiple threads."""
     # Reset thread transition counter
-    global thread_transitions, thread_names, MAIN_THREAD_ID
-    thread_transitions = 0
+    global gil_transitions, thread_switches, thread_names, MAIN_THREAD_ID
+    gil_transitions = 0
+    thread_switches = 0
     thread_names = {}  # Reset thread names
     
     # Limit the number of images if specified
@@ -910,15 +1015,15 @@ def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, ite
         force_print=True
     )
     
-    # Thread synchronization note
+    # Thread synchronization note - use more specific terminology
     if gil_status:
         safe_print(
-            f"GIL enabled: Thread coordination handled by Python's GIL mechanism",
+            f"GIL enabled: Single-threaded interpreter lock controlling Python bytecode execution",
             level=LogLevel.SYSTEM
         )
     else:
         safe_print(
-            f"GIL disabled: OS thread scheduling in effect, true parallelism possible",
+            f"GIL disabled: True parallel execution with native OS thread scheduling",
             level=LogLevel.SYSTEM
         )
     
@@ -1149,8 +1254,8 @@ def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, ite
         total_images_processed = total_images_to_process
         successful_threads = num_threads  # Assume all threads ran
     
-    # Display benchmark results
-    display_benchmark_results(total_time, total_images_processed, successful_threads, num_threads, thread_transitions)
+    # Display benchmark results with improved terminology
+    display_benchmark_results(total_time, total_images_processed, successful_threads, num_threads)
     
     # Calculate average times if available
     if all_conv_times:
@@ -1206,13 +1311,18 @@ def setup_logging(num_threads, log_dir="logs"):
     # Create log directory if it doesn't exist
     os.makedirs(log_dir, exist_ok=True)
     
-    # Generate unique log filename with timestamp
+    # Generate unique log filename with timestamp and GIL status
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = os.path.join(log_dir, f"mnist_gil_benchmark_{timestamp}_{num_threads}threads.log")
+    
+    # Add GIL status to log filename
+    gil_status = is_gil_enabled()
+    gil_str = "with_gil" if gil_status else "without_gil"
+    
+    log_file = os.path.join(log_dir, f"mnist_{gil_str}_benchmark_{timestamp}_{num_threads}threads.log")
     
     # Open the log file
     with open(log_file, 'w') as f:
-        f.write(f"MNIST GIL Demonstration Benchmark - {timestamp} - {num_threads} threads\n")
+        f.write(f"MNIST {'GIL' if gil_status else 'No-GIL'} Demonstration Benchmark - {timestamp} - {num_threads} threads\n")
         f.write(f"Python version: {sys.version}\n")
         f.write(f"numpy version: {np.__version__}\n")
         f.write(f"CPU cores: {multiprocessing.cpu_count()}\n")
@@ -1223,7 +1333,7 @@ def setup_logging(num_threads, log_dir="logs"):
 
 def main():
     """Main function to run the benchmark."""
-    global num_threads, MAIN_THREAD_ID, verbose, thread_transitions, thread_names, last_thread_id, active_thread, track_thread_switches
+    global num_threads, MAIN_THREAD_ID, verbose, gil_transitions, thread_switches, thread_names, last_thread_id, active_thread, track_thread_switches
     
     # Set up command line arguments
     parser = argparse.ArgumentParser(description='Run MNIST GIL demonstration with multiple threads')
@@ -1251,7 +1361,8 @@ def main():
         num_threads = args.threads
     
     # Initialize global variables
-    thread_transitions = 0
+    gil_transitions = 0
+    thread_switches = 0
     thread_names = {}  # Maps thread IDs to names
     last_thread_id = None
     
@@ -1269,10 +1380,15 @@ def main():
         force_print=True
     )
     
-    # Check GIL status and print
+    # Check GIL status and print with clearer messaging
     gil_status = is_gil_enabled()
-    gil_status_str = "ENABLED" if gil_status else "DISABLED"
-    gil_status_color = Colors.YELLOW if gil_status else Colors.GREEN
+    if gil_status:
+        gil_status_str = "ENABLED - Python using standard GIL locking"
+        gil_status_color = Colors.YELLOW
+    else:
+        gil_status_str = "DISABLED - True parallel threading active"
+        gil_status_color = Colors.GREEN
+    
     safe_print(
         f"{Colors.BOLD}{gil_status_color}Python GIL is {gil_status_str}{Colors.RESET}",
         level=LogLevel.SYSTEM,
@@ -1281,9 +1397,10 @@ def main():
     
     # Log thread switch tracking status
     if track_thread_switches:
-        safe_print(f"Thread switch tracking is ENABLED", level=LogLevel.SYSTEM)
+        tracking_type = "GIL transitions" if gil_status else "thread switches"
+        safe_print(f"{tracking_type.capitalize()} tracking is ENABLED", level=LogLevel.SYSTEM)
     else:
-        safe_print(f"Thread switch tracking is DISABLED for maximum performance", level=LogLevel.SYSTEM)
+        safe_print(f"Thread transition tracking is DISABLED for maximum performance", level=LogLevel.SYSTEM)
     
     safe_print(f"Log file: {os.path.abspath(log_file)}", level=LogLevel.SYSTEM)
     
@@ -1396,6 +1513,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-
