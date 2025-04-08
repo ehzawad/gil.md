@@ -288,23 +288,27 @@ class ThreadTransitionTracker:
         if gil_enabled:
             self.gil_transitions += 1
             return {
-                "type": "GIL_SWITCH",
+                "type": "GIL SWITCH",
                 "count": self.gil_transitions,
-                "action": "GIL acquisition"
+                "action": "acquired GIL"
             }
         else:
             self.thread_switches += 1
             return {
-                "type": "THREAD_SWITCH",
+                "type": "PARALLEL THREAD",
                 "count": self.thread_switches,
-                "action": "Thread context switch"
+                "action": "observed while executing in parallel"
             }
     
     def get_stats(self, elapsed_time=None):
         """Get transition statistics."""
         gil_enabled = is_gil_enabled()
-        count = self.gil_transitions if gil_enabled else self.thread_switches
-        term = "GIL SWITCH transitions" if gil_enabled else "THREAD SWITCH events"
+        if gil_enabled:
+            count = self.gil_transitions
+            term = "GIL SWITCH transitions"
+        else:
+            count = self.thread_switches
+            term = "PARALLEL THREAD observations"
         
         stats = {
             "count": count,
@@ -374,11 +378,11 @@ def get_gil_status_string(with_color=True):
     gil_enabled = is_gil_enabled()
     
     if gil_enabled:
-        description = "Python interpreter locks bytecode execution to one thread at a time"
-        threading_mode = "GIL-controlled thread access to Python interpreter"
+        description = "Single-threaded interpreter lock controlling Python bytecode execution"
+        threading_mode = "GIL SWITCH transitions control thread access"
     else:
-        description = "Free-threading mode with true parallel Python execution"
-        threading_mode = "Native OS-scheduled threads without GIL constraints"
+        description = "True parallel execution with native OS thread scheduling"
+        threading_mode = "THREAD SWITCH events managed by the OS scheduler"
     
     if with_color:
         color = Colors.YELLOW if gil_enabled else Colors.GREEN
@@ -435,16 +439,6 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
             if last_thread_id is not None and last_thread_id != thread_id:
                 # Check if GIL is enabled and use appropriate counter and message
                 gil_enabled = is_gil_enabled()
-                if gil_enabled:
-                    gil_transitions += 1  # Count GIL transitions
-                    switch_num = gil_transitions
-                    switch_type = "GIL SWITCH"
-                    action_verb = "acquired GIL"
-                else:
-                    thread_switches += 1  # Count thread switches
-                    switch_num = thread_switches
-                    switch_type = "THREAD SWITCH"
-                    action_verb = "active"
                 
                 from_thread_name = get_thread_name(last_thread_id)
                 from_thread_color = Colors.get_thread_color(last_thread_id)
@@ -468,14 +462,21 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
                     to_prefix = f"[{thread_name}-{thread_id}]"
                     to_type = "(WORKER)"
                 
-                # Create appropriate message based on GIL mode
                 if gil_enabled:
-                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} released GIL → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} {action_verb}"
+                    gil_transitions += 1  # Count GIL transitions
+                    switch_num = gil_transitions
+                    switch_type = "GIL SWITCH"
+                    # In GIL mode, only one thread executes at a time
+                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} released GIL → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} acquired GIL"
                 else:
-                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} {action_verb}"
+                    thread_switches += 1  # This is really just logging observations between parallel threads
+                    switch_num = thread_switches
+                    switch_type = "PARALLEL THREAD"
+                    # In no-GIL mode, all threads run simultaneously - we're just observing different ones
+                    action_text = f"Now observing {to_thread_color}{to_prefix}{Colors.RESET} {to_type} (all threads executing in parallel)"
                 
                 # Release lock before print to minimize contention
-                print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}{switch_type} #{switch_num}{Colors.RESET} {action_text}"
+                print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}{switch_type} #{switch_num}{Colors.RESET}: {action_text}"
                 
                 # Update for next time
                 last_thread_id = thread_id
@@ -488,7 +489,11 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
                     try:
                         with open(log_file, 'a') as f:
                             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            f.write(f"{timestamp} - {LogLevel.THREAD_SWITCH} - {switch_type} #{switch_num}: {from_prefix} → {to_prefix}\n")
+                            if gil_enabled:
+                                f.write(f"{timestamp} - {LogLevel.THREAD_SWITCH} - {switch_type} #{switch_num}: {from_prefix} released GIL → {to_prefix} acquired GIL\n")
+                            else:
+                                # In parallel execution mode, all threads are running simultaneously
+                                f.write(f"{timestamp} - {LogLevel.THREAD_SWITCH} - {switch_type} #{switch_num}: Now observing {to_prefix} (all threads executing in parallel)\n")
                     except IOError:
                         # Don't crash if log file can't be written
                         pass
@@ -801,7 +806,7 @@ def display_benchmark_results(total_time, total_images_processed, successful_thr
         switch_term = "GIL SWITCH transitions"
     else:
         switch_count = thread_switches
-        switch_term = "THREAD SWITCH events"
+        switch_term = "PARALLEL THREAD observations"
     
     switches_per_second = switch_count / total_time if total_time > 0 else 0
     
@@ -812,7 +817,16 @@ def display_benchmark_results(total_time, total_images_processed, successful_thr
     safe_print(f"Processing rate: {images_per_second:.2f} images/second", level=LogLevel.BENCHMARK)
     safe_print(f"Thread efficiency: {thread_efficiency:.2%} ({successful_threads}/{num_threads} threads successful)", level=LogLevel.BENCHMARK)
     safe_print(f"{switch_term} observed: {switch_count}", level=LogLevel.BENCHMARK)
-    safe_print(f"{switch_term} rate: {switches_per_second:.2f} switches/second", level=LogLevel.BENCHMARK)
+    safe_print(f"{switch_term} rate: {switches_per_second:.2f} per second", level=LogLevel.BENCHMARK)
+    
+    # Add a summary of the threading mode
+    if gil_status:
+        safe_print(f"Threading mode: Single-threaded interpreter lock controlling Python bytecode execution", level=LogLevel.BENCHMARK)
+        safe_print(f"Only one thread executes Python code at a time, controlled by the GIL", level=LogLevel.BENCHMARK)
+    else:
+        safe_print(f"Threading mode: True parallel execution with native OS thread scheduling", level=LogLevel.BENCHMARK)
+        safe_print(f"All threads execute simultaneously on separate CPU cores without GIL constraints", level=LogLevel.BENCHMARK)
+    
     safe_print(f"{Colors.BOLD}{Colors.YELLOW}======================================={Colors.RESET}", level=LogLevel.BENCHMARK)
 
 def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_threads=1):
@@ -1015,15 +1029,23 @@ def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, ite
         force_print=True
     )
     
-    # Thread synchronization note - use more specific terminology
+    # Thread synchronization note - use the exact technical descriptions
     if gil_status:
         safe_print(
             f"GIL enabled: Single-threaded interpreter lock controlling Python bytecode execution",
             level=LogLevel.SYSTEM
         )
+        safe_print(
+            f"Only one thread executes Python code at a time, controlled by the GIL",
+            level=LogLevel.SYSTEM
+        )
     else:
         safe_print(
             f"GIL disabled: True parallel execution with native OS thread scheduling",
+            level=LogLevel.SYSTEM
+        )
+        safe_print(
+            f"All threads execute simultaneously on separate CPU cores without GIL constraints",
             level=LogLevel.SYSTEM
         )
     
@@ -1383,10 +1405,10 @@ def main():
     # Check GIL status and print with clearer messaging
     gil_status = is_gil_enabled()
     if gil_status:
-        gil_status_str = "ENABLED - Python using standard GIL locking"
+        gil_status_str = "ENABLED - Single-threaded interpreter lock controlling Python bytecode execution"
         gil_status_color = Colors.YELLOW
     else:
-        gil_status_str = "DISABLED - True parallel threading active"
+        gil_status_str = "DISABLED - True parallel execution with native OS thread scheduling"
         gil_status_color = Colors.GREEN
     
     safe_print(
@@ -1397,10 +1419,14 @@ def main():
     
     # Log thread switch tracking status
     if track_thread_switches:
-        tracking_type = "GIL transitions" if gil_status else "thread switches"
-        safe_print(f"{tracking_type.capitalize()} tracking is ENABLED", level=LogLevel.SYSTEM)
+        if gil_status:
+            tracking_type = "GIL SWITCH transitions"
+            safe_print(f"{tracking_type} tracking is ENABLED", level=LogLevel.SYSTEM)
+        else:
+            safe_print(f"Parallel thread observation logging is ENABLED", level=LogLevel.SYSTEM)
+            safe_print(f"(Note: All threads execute simultaneously in No-GIL mode)", level=LogLevel.SYSTEM)
     else:
-        safe_print(f"Thread transition tracking is DISABLED for maximum performance", level=LogLevel.SYSTEM)
+        safe_print(f"Thread tracking is DISABLED for maximum performance", level=LogLevel.SYSTEM)
     
     safe_print(f"Log file: {os.path.abspath(log_file)}", level=LogLevel.SYSTEM)
     
