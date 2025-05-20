@@ -16,9 +16,12 @@ import threading
 import ctypes
 import inspect
 from threading import Lock
+from rich.console import Console
+from rich.table import Table
 
 # Global variables
 log_file = None  # Will be set in setup_logging
+console = Console()
 
 # Exactly 64 famous guitarists for thread names
 GUITARIST_NAMES = [
@@ -127,6 +130,8 @@ class Colors:
     # Thread color mapping - maps thread ID to a color
     thread_colors = {}
     color_index = 0
+    # Lock to ensure thread-safe assignment of colors to thread IDs.
+    color_assignment_lock = threading.Lock()
     
     # Exactly 64 distinct colors optimized for terminal visibility
     # These are carefully selected from the 6x6x6 color cube (216 colors)
@@ -231,15 +236,16 @@ class Colors:
         # Special case: main thread gets a distinctive gold color
         if thread_id == MAIN_THREAD_ID:
             return Colors.MAIN_THREAD_COLOR
-            
-        # Use a cache to maintain consistent colors for threads
-        if thread_id not in Colors.thread_colors:
-            # Assign next color in the list, cycling if needed
-            next_color = Colors.thread_color_list[Colors.color_index % 64]
-            Colors.thread_colors[thread_id] = next_color
-            Colors.color_index += 1
-            
-        return Colors.thread_colors[thread_id]
+        
+        with Colors.color_assignment_lock:
+            # Use a cache to maintain consistent colors for threads
+            if thread_id not in Colors.thread_colors:
+                # Assign next color in the list, cycling if needed
+                next_color = Colors.thread_color_list[Colors.color_index % 64]
+                Colors.thread_colors[thread_id] = next_color
+                Colors.color_index += 1
+                
+            return Colors.thread_colors[thread_id]
 
 # Store main thread ID for reference
 MAIN_THREAD_ID = threading.get_ident()
@@ -247,14 +253,19 @@ MAIN_THREAD_ID = threading.get_ident()
 # Global variables
 num_threads = 8  # Will be updated based on CPU count
 last_thread_id = None  # For thread transition tracking
-gil_transitions = 0  # Count of GIL acquisitions/releases when GIL is enabled
-thread_switches = 0  # Count of thread context switches when GIL is disabled
+# gil_transitions and thread_switches are now managed by ThreadTransitionTracker
 print_lock = Lock()  # For thread-safe printing
 verbose = True  # Default to verbose mode
 thread_names = {}  # Maps thread IDs to names
+# Lock to ensure thread-safe assignment of names to thread IDs.
+thread_name_assignment_lock = threading.Lock() 
 active_thread = MAIN_THREAD_ID  # Track which thread is currently active
 track_thread_switches = True  # Can be disabled for maximum performance
 
+# Centralized mechanism for tracking GIL transitions (in GIL mode)
+# or parallel thread activity observations (in No-GIL mode).
+# This is preferred over global counters to encapsulate state and logic,
+# improving clarity and maintainability.
 class ThreadTransitionTracker:
     """Encapsulates thread transition tracking with GIL awareness."""
     
@@ -263,26 +274,38 @@ class ThreadTransitionTracker:
         self.thread_switches = 0  # Count when GIL is disabled
         self.last_thread_id = None
         self.active_thread_id = None
-        self.thread_names = {}  # Maps thread IDs to names
+        self.thread_names = {}  # Maps thread IDs to names # TODO: This is redundant with global thread_names. Consider removing.
         self.enabled = True  # Can be disabled for maximum performance
-    
+
+    def reset(self):
+        """Resets the tracker's state."""
+        self.gil_transitions = 0
+        self.thread_switches = 0
+        self.last_thread_id = None
+        self.active_thread_id = None
+        # self.thread_names = {} # Optionally reset registered names if needed, but usually not.
+
     def register_thread_name(self, thread_id, thread_name):
         """Register a name for a thread ID."""
+        # This method might become redundant if global get_thread_name is solely used.
+        # For now, it can still be used by the tracker internally if needed.
         self.thread_names[thread_id] = thread_name
     
     def get_thread_name(self, thread_id):
-        """Get the name for a thread ID."""
+        """Get the name for a thread ID (potentially tracker-specific)."""
+        # This method might become redundant.
         if thread_id == MAIN_THREAD_ID:
             return "MAIN"
-        return self.thread_names.get(thread_id, f"Thread-{thread_id}")
-    
+        return self.thread_names.get(thread_id, f"Thread-{thread_id}") # Uses tracker's own names.
+                                                                      # Prefer global get_thread_name for consistency.
+
     def record_transition(self, from_thread_id, to_thread_id):
         """Record a thread transition with GIL awareness."""
         if not self.enabled:
             return None
             
-        self.last_thread_id = to_thread_id
-        self.active_thread_id = to_thread_id
+        # self.last_thread_id = to_thread_id # This is now managed by safe_print's last_thread_id
+        self.active_thread_id = to_thread_id # Tracks the currently active thread based on last call to this
         
         gil_enabled = is_gil_enabled()
         if gil_enabled:
@@ -290,14 +313,15 @@ class ThreadTransitionTracker:
             return {
                 "type": "GIL SWITCH",
                 "count": self.gil_transitions,
-                "action": "acquired GIL"
+                "action": "acquired GIL" # Describes the 'to_thread_id' state
             }
         else:
             self.thread_switches += 1
+            # For no-GIL, it's not a "switch" but an observation of parallel activity.
             return {
-                "type": "PARALLEL THREAD",
-                "count": self.thread_switches,
-                "action": "observed while executing in parallel"
+                "type": "PARALLEL ACTIVITY", # Changed from "PARALLEL THREAD" for clarity
+                "count": self.thread_switches, # This count is of observations, not strictly switches
+                "action": "observed in parallel execution" # Describes the 'to_thread_id' state
             }
     
     def get_stats(self, elapsed_time=None):
@@ -348,17 +372,18 @@ def calculate_optimal_thread_count():
 
 def get_thread_name(thread_id):
     """Get a human-readable name for a thread."""
-    global thread_names
+    global thread_names, thread_name_assignment_lock
     
     if thread_id == MAIN_THREAD_ID:
         return "MAIN"
-        
-    if thread_id not in thread_names:
-        # Will cycle through names if more than 64 threads
-        guitarist_idx = len(thread_names) % 64
-        thread_names[thread_id] = GUITARIST_NAMES[guitarist_idx]
-        
-    return thread_names[thread_id]
+    
+    with thread_name_assignment_lock:
+        if thread_id not in thread_names:
+            # Will cycle through names if more than 64 threads
+            guitarist_idx = len(thread_names) % 64
+            thread_names[thread_id] = GUITARIST_NAMES[guitarist_idx]
+            
+        return thread_names[thread_id]
 
 def is_gil_enabled():
     """Check if GIL is enabled in this Python process.
@@ -397,7 +422,7 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
     the actual print operation, allowing the OS and Python interpreter
     to handle thread scheduling naturally.
     """
-    global print_lock, verbose, log_file, last_thread_id, gil_transitions, thread_switches, active_thread, track_thread_switches
+    global print_lock, verbose, log_file, last_thread_id, active_thread, track_thread_switches, transition_tracker
     
     if not verbose and not force_print:
         return
@@ -414,10 +439,11 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
         thread_type_indicator = f"({Colors.BOLD}MAIN THREAD{Colors.RESET})"
     else:
         # Get or assign thread name outside the lock to reduce contention
-        if thread_id not in thread_names:
-            guitarist_idx = len(thread_names) % len(GUITARIST_NAMES)
-            thread_names[thread_id] = GUITARIST_NAMES[guitarist_idx]
-        thread_name = thread_names.get(thread_id, f"Thread-{thread_id}")
+        with thread_name_assignment_lock:
+            if thread_id not in thread_names:
+                guitarist_idx = len(thread_names) % len(GUITARIST_NAMES)
+                thread_names[thread_id] = GUITARIST_NAMES[guitarist_idx]
+            thread_name = thread_names.get(thread_id, f"Thread-{thread_id}")
         thread_prefix = f"[{thread_name}-{thread_id}]"
         thread_type_indicator = f"(WORKER)"
     
@@ -462,31 +488,39 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
                     to_prefix = f"[{thread_name}-{thread_id}]"
                     to_type = "(WORKER)"
                 
-                if gil_enabled:
-                    gil_transitions += 1  # Count GIL transitions
-                    switch_num = gil_transitions
-                    switch_type = "GIL SWITCH"
-                    # In GIL mode, only one thread executes at a time
-                    action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} released GIL → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} acquired GIL"
-                    
-                    # Release lock before print to minimize contention
-                    print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}{switch_type} #{switch_num}{Colors.RESET}: {action_text}"
-                else:
-                    # In parallel mode, we're seeing output from one of N simultaneous threads
-                    # Find this thread's index in the active pool (0-indexed)
-                    thread_list = sorted(thread_names.keys())
-                    if thread_id in thread_list:
-                        thread_index = thread_list.index(thread_id)
-                    else:
-                        thread_index = 0
-                    
-                    # Format as CPU core output
-                    core_num = thread_index + 1
-                    total_cores = len(thread_list) if thread_list else num_threads
-                    
-                    # Create a distinct output format for parallel execution
-                    print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}PARALLEL CPU {core_num}/{total_cores}{Colors.RESET} ┃ {to_thread_color}{to_prefix}{Colors.RESET} {to_type}"
                 
+                transition_info = transition_tracker.record_transition(last_thread_id, thread_id)
+                
+                if transition_info:
+                    switch_type = transition_info["type"]
+                    switch_num = transition_info["count"]
+                    
+                    if gil_enabled: # Corresponds to "GIL SWITCH"
+                        action_text = f"{from_thread_color}{from_prefix}{Colors.RESET} {from_type} released GIL → {to_thread_color}{to_prefix}{Colors.RESET} {to_type} {transition_info['action']}"
+                        print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}{switch_type} #{switch_num}{Colors.RESET}: {action_text}"
+                    else: # Corresponds to "PARALLEL ACTIVITY"
+                        # In parallel mode, we're seeing output from one of N simultaneous threads
+                        # Find this thread's index in the active pool (0-indexed)
+                        # Note: thread_names is global and might be more up-to-date than tracker's internal one.
+                        current_thread_ids = sorted(list(thread_names.keys())) # Get current snapshot of active thread IDs
+                        if thread_id in current_thread_ids:
+                            thread_index = current_thread_ids.index(thread_id)
+                        else: # Corresponds to "PARALLEL ACTIVITY"
+                            # In parallel mode, we're seeing output from one of N simultaneous threads
+                            active_worker_thread_ids = sorted([tid for tid in thread_names.keys() if tid != MAIN_THREAD_ID])
+                            
+                            core_num_str = "X" # Default/placeholder if not found
+                            if thread_id in active_worker_thread_ids:
+                                core_num_str = str(active_worker_thread_ids.index(thread_id) + 1)
+                            elif is_main_thread: # Should not happen if this path is for workers
+                                core_num_str = "M" 
+                                
+                            # total_cores should reflect the configured number of worker threads
+                            total_configured_cores = num_threads 
+                            
+                            action_text = f"{to_thread_color}{to_prefix}{Colors.RESET} {to_type} {transition_info['action']}"
+                            print_transition_message = f"{Colors.BOLD}{Colors.PURPLE}{switch_type} #{switch_num} (CPU {core_num_str}/{total_configured_cores}){Colors.RESET} ┃ {action_text}"
+
                 # Update for next time
                 last_thread_id = thread_id
                 
@@ -498,15 +532,13 @@ def safe_print(message, level=LogLevel.INFO, force_print=False):
                     try:
                         with open(log_file, 'a') as f:
                             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            if gil_enabled:
-                                f.write(f"{timestamp} - {LogLevel.THREAD_SWITCH} - {switch_type} #{switch_num}: {from_prefix} released GIL → {to_prefix} acquired GIL\n")
-                            else:
-                                # In parallel execution mode, all threads are running simultaneously
-                                thread_list = sorted(thread_names.keys())
-                                thread_index = thread_list.index(thread_id) if thread_id in thread_list else 0
-                                core_num = thread_index + 1
-                                total_cores = len(thread_list) if thread_list else num_threads
-                                f.write(f"{timestamp} - {LogLevel.THREAD_SWITCH} - PARALLEL CPU {core_num}/{total_cores} ┃ {to_prefix}\n")
+                            # Log the raw action_text which now contains more detail
+                            if transition_info: # Ensure we have transition_info
+                                # Remove ANSI codes for log file
+                                clean_action_text = print_transition_message
+                                for color_val in [getattr(Colors, k) for k in dir(Colors) if isinstance(getattr(Colors, k), str) and getattr(Colors, k).startswith('\033')]:
+                                    clean_action_text = clean_action_text.replace(color_val, '')
+                                f.write(f"{timestamp} - {LogLevel.THREAD_SWITCH} - {clean_action_text}\n")
                     except IOError:
                         # Don't crash if log file can't be written
                         pass
@@ -812,37 +844,37 @@ def display_benchmark_results(total_time, total_images_processed, successful_thr
     images_per_second = total_images_processed / total_time if total_time > 0 else 0
     thread_efficiency = successful_threads / num_threads if num_threads > 0 else 0
     
-    # Check if GIL is enabled for correct terminology and counter
+    # Get transition stats from the tracker
+    stats = transition_tracker.get_stats(elapsed_time=total_time)
+    
+    # Using rich.table.Table for a structured and visually appealing display of benchmark results.
+    table = Table(title="[bold cyan]Benchmark Results[/bold cyan]", show_header=True, header_style="bold magenta")
+    table.add_column("Metric", style="dim", width=40)
+    table.add_column("Value", style="bold")
+
+    # Add rows to the table
+    table.add_row("[yellow]Total processing time[/yellow]", f"{total_time:.2f} seconds")
+    table.add_row("[yellow]Total images processed[/yellow]", f"{total_images_processed}")
+    table.add_row("[yellow]Processing rate[/yellow]", f"{images_per_second:.2f} images/second")
+    table.add_row("[yellow]Thread efficiency[/yellow]", f"{thread_efficiency:.2%} ({successful_threads}/{num_threads} threads successful)")
+    
+    # Threading-specific metrics
+    table.add_row(f"[cyan]{stats['term']}[/cyan]", f"{stats['count']}")
+    if 'rate' in stats:
+        rate_term = stats['term'].split(' ')[0].lower()
+        table.add_row(f"[cyan]Transition rate[/cyan]", f"{stats['rate']:.2f} {rate_term}/second")
+
+    # Threading mode summary
     gil_status = is_gil_enabled()
-    
-    # Display summary
-    safe_print(f"{Colors.BOLD}{Colors.YELLOW}=========== BENCHMARK RESULTS ==========={Colors.RESET}", level=LogLevel.BENCHMARK)
-    safe_print(f"Total processing time: {total_time:.2f} seconds", level=LogLevel.BENCHMARK)
-    safe_print(f"Total images processed: {total_images_processed}", level=LogLevel.BENCHMARK)
-    safe_print(f"Processing rate: {images_per_second:.2f} images/second", level=LogLevel.BENCHMARK)
-    safe_print(f"Thread efficiency: {thread_efficiency:.2%} ({successful_threads}/{num_threads} threads successful)", level=LogLevel.BENCHMARK)
-    
-    # Display threading-specific metrics
     if gil_status:
-        safe_print(f"GIL SWITCH transitions: {gil_transitions}", level=LogLevel.BENCHMARK)
-        gil_rate = gil_transitions / total_time if total_time > 0 else 0
-        safe_print(f"GIL transition rate: {gil_rate:.2f} handoffs/second", level=LogLevel.BENCHMARK)
+        table.add_row("[blue]Threading mode[/blue]", "Single-threaded interpreter lock (GIL)")
+        table.add_row("[blue]Execution[/blue]", "Only one thread executes Python code at a time")
     else:
-        parallel_speedup = images_per_second / 3530.0  # Approximate GIL baseline from benchmarks
-        safe_print(f"Parallel execution: {num_threads} simultaneous threads", level=LogLevel.BENCHMARK)
-        safe_print(f"Parallel speedup: ~{parallel_speedup:.1f}x faster than GIL mode", level=LogLevel.BENCHMARK)
-        cpu_utilization = min(total_time * num_threads / (total_time * multiprocessing.cpu_count()), 1.0) * 100
-        safe_print(f"Estimated CPU utilization: {cpu_utilization:.1f}%", level=LogLevel.BENCHMARK)
-    
-    # Add a summary of the threading mode
-    if gil_status:
-        safe_print(f"Threading mode: Single-threaded interpreter lock controlling Python bytecode execution", level=LogLevel.BENCHMARK)
-        safe_print(f"Only one thread executes Python code at a time, controlled by the GIL", level=LogLevel.BENCHMARK)
-    else:
-        safe_print(f"Threading mode: True parallel execution with native OS thread scheduling", level=LogLevel.BENCHMARK)
-        safe_print(f"All {num_threads} threads executed simultaneously on separate CPU cores", level=LogLevel.BENCHMARK)
-    
-    safe_print(f"{Colors.BOLD}{Colors.YELLOW}======================================={Colors.RESET}", level=LogLevel.BENCHMARK)
+        table.add_row("[blue]Threading mode[/blue]", "True parallel execution (No GIL)")
+        table.add_row("[blue]Execution[/blue]", f"All {num_threads} threads execute simultaneously on separate CPU cores")
+
+    # Print the table using the global console object
+    console.print(table)
 
 def process_chunk(chunk_id, images_chunk, iterations=1, batch_size=100, num_threads=1):
     """Process a chunk of images with computationally intensive operations."""
@@ -994,11 +1026,12 @@ def process_large_image_dataset(images, num_threads=None, iterations=1):
 
 def run_mnist_processing_multithreaded(images, num_threads, batch_size=None, iterations=1, timeout=24*3600, image_limit=0):
     """Run CPU-intensive processing on MNIST images using multiple threads."""
-    # Reset thread transition counter
-    global gil_transitions, thread_switches, thread_names, MAIN_THREAD_ID
-    gil_transitions = 0
-    thread_switches = 0
-    thread_names = {}  # Reset thread names
+    global thread_names, MAIN_THREAD_ID, transition_tracker
+    
+    # Reset the global transition_tracker instance for a clean slate per benchmark run.
+    transition_tracker.reset()
+    # Reset global thread_names map for the new run
+    thread_names = {} 
     
     # Limit the number of images if specified
     if image_limit > 0 and image_limit < len(images):
@@ -1370,7 +1403,7 @@ def setup_logging(num_threads, log_dir="logs"):
 
 def main():
     """Main function to run the benchmark."""
-    global num_threads, MAIN_THREAD_ID, verbose, gil_transitions, thread_switches, thread_names, last_thread_id, active_thread, track_thread_switches
+    global num_threads, MAIN_THREAD_ID, verbose, thread_names, last_thread_id, active_thread, track_thread_switches, transition_tracker
     
     # Set up command line arguments
     parser = argparse.ArgumentParser(description='Run MNIST GIL demonstration with multiple threads')
@@ -1397,11 +1430,9 @@ def main():
     else:
         num_threads = args.threads
     
-    # Initialize global variables
-    gil_transitions = 0
-    thread_switches = 0
+    # Initialize global variables related to thread state
     thread_names = {}  # Maps thread IDs to names
-    last_thread_id = None
+    last_thread_id = None # Tracks the last thread ID seen by safe_print
     
     # Ensure main thread ID is set correctly for this process
     MAIN_THREAD_ID = threading.get_ident()
@@ -1446,13 +1477,14 @@ def main():
     else:
         safe_print(f"Thread tracking is DISABLED for maximum performance", level=LogLevel.SYSTEM)
     
-    safe_print(f"Log file: {os.path.abspath(log_file)}", level=LogLevel.SYSTEM)
+        # Using rich.print for styled console output of the log file path.
+        console.print(f"[bold blue]Log file[/bold blue]: [green]{os.path.abspath(log_file)}[/green]", style="on white")
     
     # Print system information
-    safe_print(f"Python version: {sys.version}", level=LogLevel.SYSTEM)
-    safe_print(f"numpy version: {np.__version__}", level=LogLevel.SYSTEM)
-    safe_print(f"Machine: {multiprocessing.cpu_count()} CPU cores", level=LogLevel.SYSTEM)
-    safe_print(f"Main thread ID: {MAIN_THREAD_ID}", level=LogLevel.SYSTEM)
+    safe_print(f"Python version: {sys.version}", level=LogLevel.SYSTEM) # Keep this as safe_print for file logging
+    safe_print(f"numpy version: {np.__version__}", level=LogLevel.SYSTEM) # Keep this as safe_print
+    safe_print(f"Machine: {multiprocessing.cpu_count()} CPU cores", level=LogLevel.SYSTEM) # Keep this as safe_print
+    safe_print(f"Main thread ID: {MAIN_THREAD_ID}", level=LogLevel.SYSTEM) # Keep this as safe_print
     
     # Create data directory if it doesn't exist
     os.makedirs(args.data_dir, exist_ok=True)
@@ -1525,7 +1557,8 @@ def main():
             cleanup_files(args.data_dir)
         
         if log_file:
-            safe_print(f"{Colors.MAIN_THREAD_HIGHLIGHT}Logs saved to: {log_file}{Colors.RESET} (MAIN THREAD)", level=LogLevel.SYSTEM)
+            # Using rich.print for styled console output of the final log file path.
+            console.print(f"[bold green]Logs saved to:[/bold green] [underline]{log_file}[/underline]")
             
         # Print thread legend for all threads used
         active_threads = sorted(thread_names.items(), key=lambda x: x[0])
@@ -1543,17 +1576,18 @@ def main():
             for thread_id, name in active_threads[:max_display]:
                 if thread_id != MAIN_THREAD_ID:  # Skip main thread, already printed
                     thread_color = Colors.get_thread_color(thread_id)
-                    safe_print(
-                        f"{thread_color}[{name}-{thread_id}]{Colors.RESET} - WORKER THREAD",
-                        level=LogLevel.SYSTEM
-                    )
+                    # Using rich.print for styled console output of the thread legend.
+                    console.print(f"{thread_color}[{name}-{thread_id}]{Colors.RESET} - WORKER THREAD")
             
             # Indicate if more threads were used but not displayed
             if len(active_threads) > max_display:
-                safe_print(
-                    f"... and {len(active_threads) - max_display} more threads (not shown)",
-                    level=LogLevel.SYSTEM
-                )
+                # Using rich.print for styled console output.
+                console.print(f"... and {len(active_threads) - max_display} more threads (not shown)")
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Wrap the main function call in a try/except to allow rich to print tracebacks nicely
+    try:
+        sys.exit(main())
+    except Exception:
+        console.print_exception(show_locals=True)
+        sys.exit(1)
