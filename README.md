@@ -14,3 +14,4 @@ PYTHON_GIL=1 python david_gilmour.py
 # Without gil
 PYTHON_GIL=0 python david_gilmour.py
 ```
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ehzawad/gil.md)
