@@ -38,10 +38,8 @@ brew install openssl@3 gdbm sqlite readline xz mpdecimal pkgconf
 # 3. Fix the mpdecimal configuration for macOS
 ```bash
 if [ "$(uname -m)" = "arm64" ]; then
-  # For Apple Silicon (arm64)
   sed -i '' 's/libmpdec_machine=universal/libmpdec_machine=uint128/g' configure
 else
-  # For Intel (x86_64)
   sed -i '' 's/libmpdec_machine=universal/libmpdec_machine=x64/g' configure
 fi
 ```
